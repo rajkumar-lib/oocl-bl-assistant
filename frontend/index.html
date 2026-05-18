@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OOCL B/L Assistant — Prototype</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f5f5f0;
+    color: #1a1a1a;
+    min-height: 100vh;
+  }
+  .header {
+    background: #003366;
+    color: white;
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .header-badge {
+    background: rgba(255,255,255,0.15);
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.05em;
+  }
+  .header h1 { font-size: 17px; font-weight: 600; }
+  .header p { font-size: 12px; opacity: 0.7; margin-top: 2px; }
+  .container { max-width: 900px; margin: 0 auto; padding: 24px 16px; }
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 0;
+  }
+  .tab {
+    padding: 8px 16px;
+    font-size: 13px;
+    cursor: pointer;
+    border: none;
+    background: none;
+    color: #666;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .tab.active { color: #003366; border-bottom-color: #003366; font-weight: 500; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  .chat-area {
+    background: white;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+    min-height: 420px;
+    max-height: 480px;
+    overflow-y: auto;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .message {
+    margin-bottom: 16px;
+    animation: fadeIn 0.2s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+  .message-role {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+  }
+  .message.user .message-role { color: #003366; }
+  .message.assistant .message-role { color: #555; }
+  .message-text {
+    font-size: 14px;
+    line-height: 1.6;
+    background: #f8f8f5;
+    padding: 10px 14px;
+    border-radius: 6px;
+    border-left: 3px solid #e0e0e0;
+  }
+  .message.user .message-text {
+    background: #e8f0fb;
+    border-left-color: #003366;
+  }
+  .source-chips {
+    margin-top: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .source-chip {
+    font-size: 11px;
+    background: #f0f0e8;
+    border: 1px solid #ddd;
+    padding: 3px 8px;
+    border-radius: 12px;
+    color: #555;
+  }
+  .source-detail {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #666;
+    background: #fafaf7;
+    border: 1px solid #eee;
+    border-radius: 4px;
+    padding: 8px 10px;
+    font-style: italic;
+    line-height: 1.5;
+  }
+  .feedback-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .feedback-btn {
+    font-size: 12px;
+    padding: 3px 10px;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+    background: white;
+    cursor: pointer;
+    color: #555;
+  }
+  .feedback-btn:hover { background: #f0f0e8; }
+  .feedback-btn.active-yes { background: #e8f5e9; border-color: #4caf50; color: #2e7d32; }
+  .feedback-btn.active-no { background: #fce4e4; border-color: #e57373; color: #c62828; }
+  .input-row {
+    display: flex;
+    gap: 8px;
+  }
+  .input-row input {
+    flex: 1;
+    padding: 10px 14px;
+    font-size: 14px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    outline: none;
+    background: white;
+  }
+  .input-row input:focus { border-color: #003366; }
+  .send-btn {
+    padding: 10px 20px;
+    background: #003366;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  .send-btn:hover { background: #00295c; }
+  .send-btn:disabled { background: #999; cursor: not-allowed; }
+  .quick-questions { margin-bottom: 12px; }
+  .quick-label { font-size: 12px; color: #888; margin-bottom: 6px; }
+  .quick-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+  .quick-btn {
+    font-size: 12px;
+    padding: 5px 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: white;
+    cursor: pointer;
+    color: #444;
+  }
+  .quick-btn:hover { background: #f0f0e8; border-color: #003366; color: #003366; }
+  .eval-table { width: 100%; border-collapse: collapse; font-size: 13px; background: white; border-radius: 8px; overflow: hidden; border: 1px solid #e0e0e0; }
+  .eval-table th { background: #003366; color: white; padding: 10px 12px; text-align: left; font-weight: 500; font-size: 12px; }
+  .eval-table td { padding: 10px 12px; border-bottom: 1px solid #eee; vertical-align: top; line-height: 1.5; }
+  .eval-table tr:last-child td { border-bottom: none; }
+  .eval-table tr:hover td { background: #f8f8f5; }
+  .badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 500; }
+  .badge-yes { background: #e8f5e9; color: #2e7d32; }
+  .badge-no { background: #fce4e4; color: #c62828; }
+  .badge-pending { background: #fff3e0; color: #e65100; }
+  .run-eval-btn {
+    padding: 8px 20px;
+    background: #003366;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    margin-bottom: 16px;
+  }
+  .run-eval-btn:disabled { background: #999; }
+  .stats-row { display: flex; gap: 12px; margin-bottom: 20px; }
+  .stat-card {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 12px 16px;
+    flex: 1;
+    text-align: center;
+  }
+  .stat-val { font-size: 24px; font-weight: 600; color: #003366; }
+  .stat-label { font-size: 12px; color: #888; margin-top: 2px; }
+  .loading { color: #888; font-style: italic; font-size: 13px; }
+  .notice {
+    background: #fff8e1;
+    border: 1px solid #ffe082;
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 12px;
+    color: #5d4037;
+    margin-bottom: 16px;
+  }
+  .section-label { font-size: 13px; font-weight: 600; color: #333; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>Logistics Document Assistant</h1>
+    <p>Bill of Lading Workflow Prototype — Powered by OOCL public documentation</p>
+  </div>
+  <span class="header-badge">PROTOTYPE</span>
+</div>
+
+<div class="container">
+  <div class="notice">
+    This prototype uses only public OOCL workflow documentation as source material. It is not connected to any internal OOCL systems or live shipment data. All answers are grounded in the source documents shown.
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('chat')">Ask a question</button>
+    <button class="tab" onclick="showTab('eval')">Evaluation</button>
+    <button class="tab" onclick="showTab('about')">How it works</button>
+  </div>
+
+  <div id="tab-chat" class="panel active">
+    <div class="quick-questions">
+      <div class="quick-label">Try a sample question:</div>
+      <div class="quick-btns">
+        <button class="quick-btn" onclick="askQuestion('What can I do in the Bill of Lading Document Manager?')">B/L Document Manager features</button>
+        <button class="quick-btn" onclick="askQuestion('What are the benefits of submitting shipping instructions online?')">Shipping instructions benefits</button>
+        <button class="quick-btn" onclick="askQuestion('What is required before import cargo can be released?')">Cargo release requirements</button>
+        <button class="quick-btn" onclick="askQuestion('What should I do if there is an error in the draft Bill of Lading?')">Fix a draft B/L error</button>
+        <button class="quick-btn" onclick="askQuestion('How do I check the status of a B/L amendment request?')">Amendment status</button>
+        <button class="quick-btn" onclick="askQuestion('What happens if I miss a customs deadline?')">Customs deadline (test hallucination)</button>
+      </div>
+    </div>
+
+    <div class="chat-area" id="chat-area">
+      <div class="message assistant">
+        <div class="message-role">Assistant</div>
+        <div class="message-text">Hello. I can answer questions about the OOCL Bill of Lading workflow — including document management, shipping instructions, cargo release requirements, and B/L amendment requests. All answers are grounded in OOCL's public documentation. What would you like to know?</div>
+      </div>
+    </div>
+
+    <div class="input-row">
+      <input type="text" id="question-input" placeholder="Ask about B/L workflow, shipping instructions, cargo release..." onkeydown="if(event.key==='Enter') sendQuestion()" />
+      <button class="send-btn" id="send-btn" onclick="sendQuestion()">Ask</button>
+    </div>
+  </div>
+
+  <div id="tab-eval" class="panel">
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-val" id="stat-total">—</div><div class="stat-label">Test questions</div></div>
+      <div class="stat-card"><div class="stat-val" id="stat-grounded">—</div><div class="stat-label">Grounded answers</div></div>
+      <div class="stat-card"><div class="stat-val" id="stat-rate">—</div><div class="stat-label">Grounding rate</div></div>
+    </div>
+    <button class="run-eval-btn" id="run-eval-btn" onclick="runEvaluation()">Run evaluation</button>
+    <div id="eval-results"></div>
+  </div>
+
+  <div id="tab-about" class="panel">
+    <div style="background: white; border-radius: 8px; border: 1px solid #e0e0e0; padding: 20px; font-size: 14px; line-height: 1.7; color: #333;">
+      <div class="section-label">What this prototype does</div>
+      <p style="margin-bottom: 14px;">This is a Retrieval-Augmented Generation (RAG) prototype built on public OOCL workflow documentation. When you ask a question, it retrieves the most relevant source chunks, then generates an answer using only that context.</p>
+
+      <div class="section-label">Source documents</div>
+      <ul style="margin-bottom: 14px; padding-left: 18px;">
+        <li>B/L Document Manager (oocl.com)</li>
+        <li>Shipping Instructions (oocl.com)</li>
+        <li>USA Import Procedures (oocl.com)</li>
+        <li>B/L Amendment Request guide (OOCL MOC PDF)</li>
+      </ul>
+
+      <div class="section-label">Key design decisions</div>
+      <ul style="margin-bottom: 14px; padding-left: 18px;">
+        <li>Answers are grounded in source documents only — no hallucination</li>
+        <li>Source chunks are shown with every answer for verification</li>
+        <li>If the source doesn't contain the answer, the assistant says so</li>
+        <li>User feedback (helpful / not helpful) is collected per answer</li>
+        <li>Evaluation tab tests all 6 scenarios including hallucination resistance</li>
+      </ul>
+
+      <div class="section-label">Tech stack</div>
+      <ul style="padding-left: 18px;">
+        <li>Backend: Python, FastAPI</li>
+        <li>Vector search: ChromaDB with sentence-transformers embeddings</li>
+        <li>Answer generation: OpenAI GPT-4o-mini</li>
+        <li>Frontend: Plain HTML/CSS/JS (no framework)</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'http://localhost:8000';
+let messageCount = 0;
+let lastQA = '';
+
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelector(`[onclick="showTab('${name}')"]`).classList.add('active');
+  document.getElementById(`tab-${name}`).classList.add('active');
+}
+
+function askQuestion(q) {
+  document.getElementById('question-input').value = q;
+  sendQuestion();
+}
+
+async function sendQuestion() {
+  const input = document.getElementById('question-input');
+  const q = input.value.trim();
+  if (!q) return;
+
+  input.value = '';
+  const btn = document.getElementById('send-btn');
+  btn.disabled = true;
+  btn.textContent = '...';
+
+  appendMessage('user', q, null, null);
+
+  const loadingId = 'loading-' + Date.now();
+  appendLoading(loadingId);
+
+  try {
+    const res = await fetch(`${API}/ask`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: q, prior_qa: lastQA })
+    });
+    const data = await res.json();
+    removeLoading(loadingId);
+    lastQA = `Q: ${q}\nA: ${data.answer}`;
+    appendMessage('assistant', data.answer, data.source_chunks, data.sources, q);
+  } catch (e) {
+    removeLoading(loadingId);
+    appendMessage('assistant', 'Could not connect to backend. Make sure the FastAPI server is running on localhost:8000.', null, null);
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Ask';
+  document.getElementById('chat-area').scrollTop = 9999;
+}
+
+function appendLoading(id) {
+  const chat = document.getElementById('chat-area');
+  const div = document.createElement('div');
+  div.id = id;
+  div.className = 'message assistant';
+  div.innerHTML = `<div class="message-role">Assistant</div><div class="message-text loading">Retrieving from source documents...</div>`;
+  chat.appendChild(div);
+  chat.scrollTop = 9999;
+}
+
+function removeLoading(id) {
+  const el = document.getElementById(id);
+  if (el) el.remove();
+}
+
+function appendMessage(role, text, sourceChunks, sources, originalQ) {
+  const chat = document.getElementById('chat-area');
+  const msgId = 'msg-' + Date.now() + '-' + (messageCount++);
+  const div = document.createElement('div');
+  div.className = `message ${role}`;
+  div.id = msgId;
+
+  let html = `<div class="message-role">${role === 'user' ? 'You' : 'Assistant'}</div>`;
+  html += `<div class="message-text">${escHtml(text)}</div>`;
+
+  if (sources && sources.length) {
+    html += `<div class="source-chips">`;
+    sources.forEach(s => { html += `<span class="source-chip">📄 ${escHtml(s)}</span>`; });
+    html += `</div>`;
+  }
+
+  if (sourceChunks && sourceChunks.length) {
+    html += `<div class="source-detail"><strong>Source context used:</strong><br>${escHtml(sourceChunks[0].text)}</div>`;
+  }
+
+  if (role === 'assistant' && originalQ) {
+    html += `<div class="feedback-row">
+      <span style="font-size:12px;color:#888;">Was this helpful?</span>
+      <button class="feedback-btn" onclick="sendFeedback('${msgId}', '${escAttr(originalQ)}', '${escAttr(text)}', true, this)">👍 Yes</button>
+      <button class="feedback-btn" onclick="sendFeedback('${msgId}', '${escAttr(originalQ)}', '${escAttr(text)}', false, this)">👎 No</button>
+    </div>`;
+  }
+
+  div.innerHTML = html;
+  chat.appendChild(div);
+}
+
+async function sendFeedback(msgId, question, answer, helpful, btn) {
+  const row = btn.closest('.feedback-row');
+  row.querySelectorAll('.feedback-btn').forEach(b => b.classList.remove('active-yes','active-no'));
+  btn.classList.add(helpful ? 'active-yes' : 'active-no');
+
+  try {
+    await fetch(`${API}/feedback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question, answer, source: 'chat', helpful, comment: '' })
+    });
+  } catch(e) {}
+}
+
+async function runEvaluation() {
+  const btn = document.getElementById('run-eval-btn');
+  btn.disabled = true;
+  btn.textContent = 'Running...';
+  document.getElementById('eval-results').innerHTML = '<p class="loading">Running evaluation against all test questions...</p>';
+
+  try {
+    const res = await fetch(`${API}/evaluate`);
+    const data = await res.json();
+    const results = data.evaluation_results;
+
+    const grounded = results.filter(r => r.grounded !== false && !r.error).length;
+    const total = results.length;
+
+    document.getElementById('stat-total').textContent = total;
+    document.getElementById('stat-grounded').textContent = grounded;
+    document.getElementById('stat-rate').textContent = total ? Math.round(grounded/total*100) + '%' : '—';
+
+    let html = `<table class="eval-table">
+      <thead><tr>
+        <th style="width:28px">#</th>
+        <th>Question</th>
+        <th>Expected source</th>
+        <th>Answer (excerpt)</th>
+        <th style="width:70px">Grounded</th>
+      </tr></thead><tbody>`;
+
+    results.forEach(r => {
+      const grounded = r.error ? false : r.grounded !== false;
+      const answerExcerpt = r.error ? `Error: ${r.error}` : (r.answer || '').substring(0, 120) + ((r.answer||'').length > 120 ? '...' : '');
+      html += `<tr>
+        <td>${r.id}</td>
+        <td>${escHtml(r.question)}</td>
+        <td style="color:#666;font-size:12px">${escHtml(r.expected_source || '')}</td>
+        <td style="font-size:12px;color:#444">${escHtml(answerExcerpt)}</td>
+        <td><span class="badge ${grounded ? 'badge-yes' : 'badge-no'}">${grounded ? 'Yes' : 'No'}</span></td>
+      </tr>`;
+    });
+
+    html += '</tbody></table>';
+    document.getElementById('eval-results').innerHTML = html;
+  } catch(e) {
+    document.getElementById('eval-results').innerHTML = '<p style="color:red;font-size:13px">Could not connect to backend. Make sure FastAPI is running on localhost:8000.</p>';
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Run evaluation';
+}
+
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escAttr(s) {
+  return String(s||'').replace(/'/g,"\\'").replace(/\n/g,' ');
+}
+</script>
+</body>
+</html>
