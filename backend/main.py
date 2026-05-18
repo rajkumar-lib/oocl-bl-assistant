@@ -37,22 +37,52 @@ STOPWORDS = {
     "your", "my", "our", "their", "this", "that", "there", "it", "as", "at", "from", "about", "into", "before", "after"
 }
 
-FOLLOWUP_SIGNALS = [
-    "what else", "tell me more", "why is that", "how does that", "can you explain",
-    "what about", "elaborate", "and what", "any other", "what does that mean",
-    "explain that", "more about", "what do you mean", "give me more", "go on",
-    "continue", "and also", "what if", "how so", "why so",
-]
+LOGISTICS_TOPIC_WORDS = {
+    "bill", "lading", "bl", "shipping", "instructions", "cargo", "release", "amendment",
+    "customs", "draft", "waybill", "import", "export", "manifest", "charges", "charge",
+    "document", "doc", "error", "delay", "demurrage", "oocl", "print", "seaway", "booking",
+    "container", "history", "log", "validate", "submit", "request", "fee", "fees", "payment",
+    "deadline", "clearance", "pickup", "delivery", "collection", "port", "vessel", "freight"
+}
 
-def is_followup(question: str) -> bool:
-    q = question.lower().strip()
-    if any(q.startswith(sig) or sig in q for sig in FOLLOWUP_SIGNALS):
-        return True
-    words = q.split()
-    vague_starters = {"why", "how", "when", "also", "and", "but", "so", "then"}
-    if len(words) <= 4 and words[0] in vague_starters:
+def parse_prior_qa(prior_qa: str) -> Dict[str, str]:
+    if not prior_qa:
+        return {}
+    parts = prior_qa.split("\n", 1)
+    q = parts[0].replace("Q:", "").strip()
+    a = parts[1].replace("A:", "").strip() if len(parts) > 1 else ""
+    return {"question": q, "answer": a}
+
+
+def is_followup(question: str, prior: Dict[str, str]) -> bool:
+    if not prior or not prior.get("answer"):
+        return False
+    q_words = set(re.findall(r"[a-z]+", question.lower()))
+    has_topic = any(t in question.lower() for t in [
+        "bill of lading", "b/l", "bl", "shipping instructions", "cargo release",
+        "customs", "charges", "amendment", "draft", "history log", "sea waybill",
+        "container", "delivery", "import", "export"
+    ])
+    if has_topic:
+        return False
+    if len(question.split()) <= 6:
         return True
     return False
+
+
+def rewrite_followup_question(question: str, prior: Dict[str, str]) -> str:
+    combined = f"{prior.get('question', '')} {prior.get('answer', '')}".lower()
+
+    if "bill of lading document manager" in combined or "b/l document manager" in combined or "bl doc" in combined:
+        return "What additional features, getting started steps, alerts, history log, printing, and sharing options are available in the OOCL Bill of Lading Document Manager?"
+    if "shipping instructions" in combined:
+        return "What additional features and benefits are available for OOCL online shipping instructions, including templates, manifest submission, and document accuracy?"
+    if "cargo release" in combined or "import cargo" in combined:
+        return "What additional import cargo release requirements, delivery instructions, customs clearance, charges, and delay risks are described in OOCL import procedures?"
+    if "amendment" in combined or "draft bill of lading" in combined or "error" in combined:
+        return "What additional steps are involved in submitting and checking an OOCL Bill of Lading amendment request, including validate BL, submit, and history log?"
+    prior_q = prior.get("question", "")
+    return f"{prior_q}. Please provide additional details from the same source context."
 
 
 class AskRequest(BaseModel):
@@ -253,7 +283,49 @@ def extractive_answer(question: str, chunks: List[Dict[str, Any]], prior_qa: str
     return " ".join(sentence for _, sentence in ranked[:3])
 
 
-def generate_answer(question: str, chunks: List[Dict[str, Any]], prior_qa: str = "") -> str:
+TOPIC_EXPANSIONS = {
+    "bl": "What is the Bill of Lading Document Manager and what can I do with it?",
+    "b/l": "What is the Bill of Lading Document Manager and what can I do with it?",
+    "bl doc": "What can customers do in the OOCL Bill of Lading Document Manager, including viewing drafts, requesting changes, printing Bills of Lading, receiving alerts, and monitoring activity?",
+    "bl docs": "What can customers do in the OOCL Bill of Lading Document Manager, including viewing drafts, requesting changes, printing Bills of Lading, receiving alerts, and monitoring activity?",
+    "bl document": "What can customers do in the OOCL Bill of Lading Document Manager, including viewing drafts, requesting changes, printing Bills of Lading, receiving alerts, and monitoring activity?",
+    "bl documents": "What can customers do in the OOCL Bill of Lading Document Manager, including viewing drafts, requesting changes, printing Bills of Lading, receiving alerts, and monitoring activity?",
+    "b/l doc": "What can customers do in the OOCL Bill of Lading Document Manager, including viewing drafts, requesting changes, printing Bills of Lading, receiving alerts, and monitoring activity?",
+    "b/l docs": "What can customers do in the OOCL Bill of Lading Document Manager, including viewing drafts, requesting changes, printing Bills of Lading, receiving alerts, and monitoring activity?",
+    "b/l document": "What can customers do in the OOCL Bill of Lading Document Manager, including viewing drafts, requesting changes, printing Bills of Lading, receiving alerts, and monitoring activity?",
+    "b/l documents": "What can customers do in the OOCL Bill of Lading Document Manager, including viewing drafts, requesting changes, printing Bills of Lading, receiving alerts, and monitoring activity?",
+    "bill of lading doc": "What can customers do in the OOCL Bill of Lading Document Manager, including viewing drafts, requesting changes, printing Bills of Lading, receiving alerts, and monitoring activity?",
+    "bill of lading docs": "What can customers do in the OOCL Bill of Lading Document Manager, including viewing drafts, requesting changes, printing Bills of Lading, receiving alerts, and monitoring activity?",
+    "bill of lading document": "What can customers do in the OOCL Bill of Lading Document Manager, including viewing drafts, requesting changes, printing Bills of Lading, receiving alerts, and monitoring activity?",
+    "bill of lading documents": "What can customers do in the OOCL Bill of Lading Document Manager, including viewing drafts, requesting changes, printing Bills of Lading, receiving alerts, and monitoring activity?",
+    "document manager": "What can customers do in the OOCL Bill of Lading Document Manager, including viewing drafts, requesting changes, printing Bills of Lading, receiving alerts, and monitoring activity?",
+    "shipping instructions": "What are online shipping instructions and why are they useful?",
+    "shipping": "What are online shipping instructions and why are they useful?",
+    "amendment": "What is the B/L amendment request process?",
+    "amendment request": "What should I do if there is an error in the draft Bill of Lading?",
+    "cargo release": "What is required before import cargo is released?",
+    "import": "What are the OOCL import procedures for cargo release?",
+    "customs": "What are the customs clearance requirements for cargo release in OOCL import procedures?",
+    "clearance": "What are the customs clearance requirements for cargo release in OOCL import procedures?",
+    "fees": "What charges must be paid before import cargo is released?",
+    "fee": "What charges must be paid before import cargo is released?",
+    "charges": "What charges must be paid before import cargo is released?",
+    "payment": "What charges must be paid before import cargo is released?",
+    "delay": "What can cause delays in cargo release or delivery?",
+    "demurrage": "What can cause demurrage exposure or delays in cargo release?",
+    "pickup": "What is required before import cargo can be picked up or released?",
+    "delivery": "What are the delivery requirements for import cargo release?",
+    "history log": "How do I monitor B/L activity using the History Log?",
+    "draft": "How do I view and manage a draft Bill of Lading?",
+}
+
+def expand_query(question: str) -> str:
+    key = question.lower().strip().rstrip("?.")
+    return TOPIC_EXPANSIONS.get(key, question)
+
+
+def generate_answer(question: str, chunks: List[Dict[str, Any]], prior_qa: str = "", followup_context: str = "") -> str:
+    question = expand_query(question)
     if not prior_qa and not context_has_enough_signal(question, chunks):
         return UNKNOWN_ANSWER
     if not chunks:
@@ -285,7 +357,8 @@ def generate_answer(question: str, chunks: List[Dict[str, Any]], prior_qa: str =
     )
 
     prior_context_block = f"\n\nPrior exchange for context:\n{prior_qa}" if prior_qa else ""
-    user_prompt = f"Source context:\n{context}{prior_context_block}\n\nQuestion: {question}\n\nAnswer:"
+    followup_block = f"\n\n{followup_context}" if followup_context else ""
+    user_prompt = f"Source context:\n{context}{prior_context_block}{followup_block}\n\nQuestion: {question}\n\nAnswer:"
 
     response = client.chat.completions.create(
         model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
@@ -369,6 +442,10 @@ def ask(req: AskRequest):
     if not question:
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
 
+    prior = parse_prior_qa(req.prior_qa)
+    followup = is_followup(question, prior)
+    prior_qa = req.prior_qa.strip() if followup else ""
+
     GREETING_KEYWORDS = {"hello", "hi", "hey", "howdy", "greetings", "morning", "afternoon", "evening"}
     GREETING_RESPONSES = [
         "Hello! I can help you with OOCL Bill of Lading workflow questions — document management, shipping instructions, cargo release, and amendment requests. What would you like to know?",
@@ -377,11 +454,11 @@ def ask(req: AskRequest):
         "Good to hear from you! I can answer questions about OOCL's B/L process — shipping instructions, cargo release, amendments, and more.",
         "Welcome! What would you like to know about the OOCL Bill of Lading workflow?",
     ]
-    LOGISTICS_KEYWORDS = {"bill", "lading", "shipping", "cargo", "release", "amendment", "customs", "draft", "waybill", "import", "export", "manifest", "charges", "document", "instructions", "error", "delay", "demurrage"}
+    LOGISTICS_KEYWORDS = {"bill", "lading", "bl", "b", "l", "shipping", "cargo", "release", "amendment", "customs", "draft", "waybill", "import", "export", "manifest", "charges", "document", "doc", "instructions", "error", "delay", "demurrage"}
     q_words = set(re.findall(r"[a-z]+", question.lower()))
     is_greeting = q_words and q_words.issubset(GREETING_KEYWORDS | {"good", "there", "everyone"})
     is_casual_opener = len(question.split()) <= 5 and not q_words.intersection(LOGISTICS_KEYWORDS) and "?" not in question
-    if is_greeting or is_casual_opener:
+    if not followup and (is_greeting or is_casual_opener):
         import hashlib
         idx = int(hashlib.md5(question.lower().encode()).hexdigest(), 16) % len(GREETING_RESPONSES)
         return {
@@ -392,15 +469,11 @@ def ask(req: AskRequest):
             "grounded": True,
         }
 
-    followup = is_followup(question)
-    prior_qa = req.prior_qa.strip() if followup and req.prior_qa else ""
+    search_question = rewrite_followup_question(question, prior) if followup else question
+    chunks = retrieve(search_question, top_k=4)
 
-    chunks = retrieve(question, top_k=4)
-    if not chunks and prior_qa:
-        prior_q = prior_qa.split("\n")[0].replace("Q:", "").strip()
-        chunks = retrieve(prior_q, top_k=4)
-
-    answer = generate_answer(question, chunks, prior_qa)
+    followup_context = f"Original follow-up: \"{question}\"\nInterpreted as: \"{search_question}\"" if followup and search_question != question else ""
+    answer = generate_answer(question, chunks, prior_qa, followup_context)
     grounded = bool(chunks) and not is_unknown_answer(answer)
 
     return {

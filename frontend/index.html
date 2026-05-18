@@ -344,7 +344,9 @@ async function sendQuestion() {
     });
     const data = await res.json();
     removeLoading(loadingId);
-    lastQA = `Q: ${q}\nA: ${data.answer}`;
+    if (data.sources && data.sources.length > 0 && !data.answer.includes("does not contain enough information")) {
+      lastQA = `Q: ${q}\nA: ${data.answer}`;
+    }
     appendMessage('assistant', data.answer, data.source_chunks, data.sources, q);
   } catch (e) {
     removeLoading(loadingId);
