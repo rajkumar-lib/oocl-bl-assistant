@@ -1,0 +1,7 @@
+id,question,expected_source,expected_behavior
+1,What can customers do in the Bill of Lading Document Manager?,Bill of Lading Document Manager,"Answer should mention viewing draft B/L online, requesting changes, accepting draft B/L, and printing original B/L, sea waybills, or copy B/L."
+2,Why are online shipping instructions useful?,Shipping Instructions,"Answer should mention reducing re-keying, improving accuracy, reducing document turnaround time, and helping users receive draft B/Ls faster."
+3,What may be required before import cargo is released?,Import Procedures,"Answer should mention properly endorsed Original Bill of Lading or Sea Waybill release, collect charges paid in full, and customs clearance."
+4,What can delay shipment or cargo release?,Import Procedures,"Answer should mention missing release requirements such as B/L or Sea Waybill release, unpaid collect charges, customs clearance issues, late delivery instructions, or demurrage exposure."
+5,How should the assistant answer if the source does not contain the information?,General evaluation,"Answer should say the source material does not provide enough information instead of guessing."
+6,What should a customer do if there is an error in the draft Bill of Lading?,B/L Amendment Request,"Answer should mention using Amendment Request, editing the B/L details or container and cargo information, clicking Validate BL, submitting the amendment request, and checking status in History Log."
