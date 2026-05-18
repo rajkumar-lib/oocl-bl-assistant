@@ -6,6 +6,13 @@ Built proactively to demonstrate applied AI thinking for a logistics domain.
 
 ---
 
+## Demo
+
+![Greeting](demo.png)
+![Answer with sources](demo2.png)
+
+---
+
 ## What it does
 
 - Answers questions about the OOCL B/L workflow (document management, shipping instructions, cargo release, amendment requests)
