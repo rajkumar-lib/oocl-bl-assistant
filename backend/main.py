@@ -369,6 +369,9 @@ def ask(req: AskRequest):
     if not question:
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
 
+    followup = is_followup(question)
+    prior_qa = req.prior_qa.strip() if followup and req.prior_qa else ""
+
     GREETING_KEYWORDS = {"hello", "hi", "hey", "howdy", "greetings", "morning", "afternoon", "evening"}
     GREETING_RESPONSES = [
         "Hello! I can help you with OOCL Bill of Lading workflow questions — document management, shipping instructions, cargo release, and amendment requests. What would you like to know?",
@@ -380,7 +383,7 @@ def ask(req: AskRequest):
     LOGISTICS_KEYWORDS = {"bill", "lading", "shipping", "cargo", "release", "amendment", "customs", "draft", "waybill", "import", "export", "manifest", "charges", "document", "instructions", "error", "delay", "demurrage"}
     q_words = set(re.findall(r"[a-z]+", question.lower()))
     is_greeting = q_words and q_words.issubset(GREETING_KEYWORDS | {"good", "there", "everyone"})
-    is_casual_opener = len(question.split()) <= 5 and not q_words.intersection(LOGISTICS_KEYWORDS) and "?" not in question
+    is_casual_opener = len(question.split()) <= 5 and not q_words.intersection(LOGISTICS_KEYWORDS) and "?" not in question and not is_followup(question)
     if is_greeting or is_casual_opener:
         import hashlib
         idx = int(hashlib.md5(question.lower().encode()).hexdigest(), 16) % len(GREETING_RESPONSES)
@@ -391,9 +394,6 @@ def ask(req: AskRequest):
             "source_chunks": [],
             "grounded": True,
         }
-
-    followup = is_followup(question)
-    prior_qa = req.prior_qa.strip() if followup and req.prior_qa else ""
 
     chunks = retrieve(question, top_k=4)
     if not chunks and prior_qa:
