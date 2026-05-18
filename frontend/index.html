@@ -287,6 +287,8 @@
         <li>Answers are grounded in source documents only — no hallucination</li>
         <li>Source chunks are shown with every answer for verification</li>
         <li>If the source doesn't contain the answer, the assistant says so</li>
+        <li>Typo-tolerant retrieval using fuzzy token matching (no external dependencies)</li>
+        <li>Follow-up questions are detected automatically and answered with prior context</li>
         <li>User feedback (helpful / not helpful) is collected per answer</li>
         <li>Evaluation tab tests all 6 scenarios including hallucination resistance</li>
       </ul>
@@ -294,7 +296,7 @@
       <div class="section-label">Tech stack</div>
       <ul style="padding-left: 18px;">
         <li>Backend: Python, FastAPI</li>
-        <li>Vector search: ChromaDB with sentence-transformers embeddings</li>
+        <li>Retrieval: Keyword scoring + fuzzy token matching (difflib)</li>
         <li>Answer generation: OpenAI GPT-4o-mini</li>
         <li>Frontend: Plain HTML/CSS/JS (no framework)</li>
       </ul>
