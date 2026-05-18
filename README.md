@@ -102,6 +102,15 @@ Open **http://localhost:3000** in your browser.
 
 ---
 
+## What's next
+
+- Switch retrieval to dense embeddings (sentence-transformers) if the corpus grows beyond ~50 chunks
+- Add multi-turn conversation history using OpenAI's messages array instead of single prior Q&A injection
+- Expand the knowledge base to cover more OOCL workflows (freight rates, container tracking)
+- Add a confidence score to each answer based on retrieval overlap strength
+
+---
+
 ## Project structure
 
 ```
