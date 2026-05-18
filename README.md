@@ -31,6 +31,8 @@ Built proactively to demonstrate applied AI thinking for a logistics domain.
 - OOCL USA Import Procedures (public page)
 - OOCL B/L Amendment Request guide (public PDF)
 
+> This prototype uses only public OOCL documentation. It is not affiliated with OOCL, not connected to internal OOCL systems, and does not use live shipment data.
+
 ---
 
 ## Tech stack
@@ -95,7 +97,7 @@ Open **http://localhost:3000** in your browser.
 - Hallucination resistance (question the source cannot answer)
 - Draft B/L error correction workflow
 
-**Result: 6/6 grounded (100%)**
+**Result: 6/6 grounded on the evaluation set**
 
 ---
 
@@ -103,7 +105,8 @@ Open **http://localhost:3000** in your browser.
 
 - **Keyword retrieval over vector embeddings** — the corpus is 13 chunks; dense embeddings add a 500MB dependency with no measurable accuracy gain at this scale
 - **Fuzzy token matching** — handles typos without external spell-check libraries by matching query tokens against the known chunk vocabulary
-- **Conversation memory** — follow-up questions (detected by signal phrases) include the prior Q&A as context in the GPT prompt
+- **Conversation memory** — short follow-up questions use the previous grounded Q&A as context, while new logistics topics are treated as fresh queries
+- **Short query expansion** — topic-only inputs like "customs", "fees", or "BL docs" are expanded into complete search questions before retrieval
 - **Hallucination gate** — `context_has_enough_signal()` checks token overlap before calling OpenAI; the system prompt enforces source-only answers
 - **Extractive fallback** — the app is fully demoable without an API key
 
